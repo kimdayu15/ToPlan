@@ -1,6 +1,5 @@
 package com.gems.toplan.ui.model
 
-import TodoViewModel
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent

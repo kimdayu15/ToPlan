@@ -1,6 +1,6 @@
 package com.gems.toplan.ui.screen
 
-import TodoViewModel
+import com.gems.toplan.ui.model.TodoViewModel
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,66 +20,23 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
 import com.gems.toplan.R
 import com.gems.toplan.data.TodoItem
 import com.gems.toplan.navigation.NavigationItems
+import com.gems.toplan.ui.theme.ToPlanTheme
 
 @Composable
-fun DoScreen(
-    viewModel: TodoViewModel,
-    navController: NavHostController
-) {
-    val tasks by viewModel.tasks.collectAsState(initial = emptyList())
-    val isRefreshing by viewModel.isRefreshing.collectAsState()
+fun DoScreen(navController: NavHostController) {
+//    val tasks by viewModel.tasks.collectAsState(initial = emptyList())
+//    val isRefreshing by viewModel.isRefreshing.collectAsState()
+//
+//    var visibleState by remember { mutableStateOf(true) }
+//    val visibleTasks = if (visibleState) tasks else tasks.filter { it.done }
+    ToPlanTheme {
 
-    var visibleState by remember { mutableStateOf(true) }
-    val visibleTasks = if (visibleState) tasks else tasks.filter { it.done }
-
-    Scaffold(
-        topBar = {
-            TaskTopAppBar(
-                visibleState = visibleState,
-                onVisibilityToggle = { visibleState = !visibleState },
-                doneCount = tasks.count { it.done }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    navController.navigate(NavigationItems.ItemScreen.createRoute(id = "new"))
-                },
-                containerColor = MaterialTheme.colorScheme.primary,
-                shape = CircleShape
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = "Add a new task")
-            }
-        }
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            if (tasks.isEmpty() && !isRefreshing) {
-                EmptyState()
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(8.dp)
-                ) {
-                    items(visibleTasks) { task ->
-                        EachTask(task = task, navController) { updatedTask ->
-                            viewModel.toggleTaskCompletion(updatedTask)
-                        }
-                    }
-                }
-            }
-
-            if (isRefreshing) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.TopCenter))
-            }
-        }
     }
+
 }
 
 @Composable
@@ -129,7 +86,6 @@ fun EachTask(
 
             IconButton(
                 onClick = {
-                    navController.navigate(NavigationItems.ItemScreen.createRoute(task.id))
                 }
             ) {
                 Icon(Icons.Default.Info, contentDescription = "Details")
@@ -138,54 +94,13 @@ fun EachTask(
     }
 }
 
+
+
+
+@Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun EmptyState() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(
-            text = "No tasks available. Add one!",
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color.Gray
-        )
-    }
+fun MainPreview(){
+    DoScreen(rememberNavController())
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun TaskTopAppBar(
-    visibleState: Boolean,
-    onVisibilityToggle: () -> Unit,
-    doneCount: Int
-) {
-    LargeTopAppBar(
-        title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        "My Tasks",
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Done - $doneCount",
-                        fontSize = 20.sp,
-                        color = Color.Gray
-                    )
-                }
-                IconButton(onClick = onVisibilityToggle) {
-                    Icon(
-                        painter = if (visibleState) {
-                            painterResource(id = R.drawable.ic_visibility)
-                        } else {
-                            painterResource(id = R.drawable.ic_no_visibility)
-                        },
-                        contentDescription = "Toggle Visibility",
-                        tint = Color(0xFF007AFF)
-                    )
-                }
-            }
-        }
-    )
-}
+

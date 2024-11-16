@@ -1,18 +1,31 @@
+package com.gems.toplan.ui.model
+
 import android.content.Context
-import androidx.compose.material3.Snackbar
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.gems.toplan.data.TaskSyncManager
+import com.gems.toplan.data.NetworkUtils
 import com.gems.toplan.data.TodoItem
 import com.gems.toplan.data.TodoItemsRepository
-import com.gems.toplan.network.TodoApi
+import com.gems.toplan.data.TodoWorkRequest
+import com.gems.toplan.data.UpdateTodoRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import retrofit2.Response
+import retrofit2.HttpException
+import java.text.SimpleDateFormat
+import kotlinx.coroutines.cancelChildren
+import java.util.Date
+import java.util.UUID
 
-class TodoViewModel(val repository: TodoItemsRepository, context: Context) : ViewModel() {
-    private val taskSyncManager = TaskSyncManager(context)
+class TodoViewModel() : ViewModel() {
+    val isNetworkAvailable = MutableStateFlow(false)
+    val repository = TodoItemsRepository()
+
+    fun observeNetworkChanges(context: Context) {
+        NetworkUtils.observeNetworkChanges(context) {
+            isNetworkAvailable.value = true
+        }
+    }
 
     private val _tasks = MutableStateFlow<List<TodoItem.Task>>(emptyList())
     val tasks: StateFlow<List<TodoItem.Task>> get() = _tasks
@@ -20,74 +33,163 @@ class TodoViewModel(val repository: TodoItemsRepository, context: Context) : Vie
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> get() = _isRefreshing
 
+    private val _revision = MutableStateFlow<Int>(0)
+
+    private val _checkedTasks = MutableStateFlow<Int>(0)
+    val checkedTasks: StateFlow<Int> get() = _checkedTasks
+
+    private val _snackbarMessage = MutableStateFlow<String?>(null)
+    val snackbarMessage: StateFlow<String?> get() = _snackbarMessage
+
     init {
         viewModelScope.launch {
-            repository.fetchTasks().collect { fetchedTasks ->
-                _tasks.value = fetchedTasks
-            }
+            getTasks()
         }
-        observeNetworkAndSync()
     }
 
-    private fun observeNetworkAndSync() {
-        taskSyncManager.syncTasks(
-            onSuccess = {
-                refreshTasks()
-            },
-            onError = { error ->
-                println("Sync error: $error")
-            }
+    suspend fun getTasks() {
+        val fetchedTasks = repository.getTasks()
+        fetchedTasks.onSuccess {
+            _tasks.value = it.list.toMutableList()
+            _revision.value = it.revision
+            _checkedTasks.value = it.list.count { it.done }
+        }.onFailure {
+            _snackbarMessage.value = it.message
+        }
+    }
+
+    suspend fun addTask(text: String, importance: Int, deadline: Long?) {
+        val success = repository.addTask(
+            TodoWorkRequest(
+                "ok", TodoItem.Task(
+                    id = UUID.randomUUID().toString(),
+                    text = text,
+                    importance = importance,
+                    done = false,
+                    deadline = deadline,
+                    createdAt = Date().time,
+                    changedAt = Date().time,
+                    lastUpdatedBy = ""
+                )
+
+            ), _revision.value
         )
-    }
-
-    fun addTask(task: TodoItem.Task) {
-        viewModelScope.launch {
-            val success = repository.addTask(task)
-            if (success) {
-                _tasks.value += task
-            }
-        }
-    }
-
-    private fun refreshTasks() {
-        viewModelScope.launch {
-            _isRefreshing.value = true
-            try {
-                repository.fetchTasks().collect { fetchedTasks ->
-                    _tasks.value = fetchedTasks
+        success.onSuccess {
+            getTasks()
+        }.onFailure {
+            when (it) {
+                is HttpException -> {
+                    _snackbarMessage.value = it.message
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                _isRefreshing.value = false
-            }
-        }
-    }
 
-    fun toggleTaskCompletion(task: TodoItem.Task) {
-        viewModelScope.launch {
-            try {
-                val updatedTask = task.copy(done = !task.done)
-                _tasks.value = _tasks.value.map {
-                    if (it.id == updatedTask.id) updatedTask else it
+                else -> {
+                    _snackbarMessage.value = it.message
                 }
-                updateTask(updatedTask)
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
 
-    suspend fun updateTask(task: TodoItem.Task) {
-        try {
-            val response: Response<Unit> = TodoApi.updateTask(task.id, task)
-            if (response.isSuccessful) {
-                println("Task updated successfully!")
-            } else {
-                println("Error updating task: ${response.message()}")
+    fun getTask(todoId: String, resp: (TodoItem.Task?) -> Unit) {
+        viewModelScope.launch {
+            repository.getTaskId(todoId).onSuccess {
+                resp(it.taskElement)
+            }.onFailure {
+                when (it) {
+                    is HttpException -> {
+                        _snackbarMessage.value = it.message
+                    }
+
+                    else -> {
+                        _snackbarMessage.value = it.message
+                    }
+                }
+
             }
-        } catch (e: Exception) {
-            println("Failed to update task: ${e.message}")
         }
+    }
+
+    fun updateVisibility() {
+        _isRefreshing.value = !_isRefreshing.value
+    }
+
+    fun snackError() {
+        _snackbarMessage.value = null
+    }
+
+    fun countRefresh(added: Boolean = true) {
+        if (added) {
+            _checkedTasks.value++
+        } else {
+            _checkedTasks.value--
+        }
+    }
+
+    fun simpleDateFormatter(date: Long): String {
+        val formatter = SimpleDateFormat("dd.MM.yyyy", java.util.Locale.getDefault())
+        return if (date != null) {
+            formatter.format(Date(date))
+        } else {
+            ""
+        }
+    }
+
+    private fun refreshTaskId(id: String, todoWorkRequest: TodoWorkRequest) {
+        viewModelScope.launch {
+            val success = repository.updateTask(id, todoWorkRequest, _revision.value)
+            success.onSuccess {
+                getTasks()
+            }.onFailure {
+                if (it is HttpException && it.code() == 400) {
+                    _snackbarMessage.value = "Bad request"
+                } else if (it is HttpException && it.code() == 404) {
+                    _snackbarMessage.value = "Not found"
+                } else {
+                    _snackbarMessage.value = it.message
+                }
+            }
+        }
+    }
+
+    fun deleteTaskId(taskId: String) {
+        viewModelScope.launch {
+            val success = repository.deleteTask(taskId, _revision.value)
+            success.onSuccess {
+                getTasks()
+            }.onFailure {
+                if (it is HttpException && it.code() == 400) {
+                    _snackbarMessage.value = "Bad request"
+                } else if (it is HttpException && it.code() == 404) {
+                    _snackbarMessage.value = "Not found"
+                } else {
+                    _snackbarMessage.value = it.message
+                }
+            }
+        }
+    }
+
+    fun refreshTasks() {
+        viewModelScope.launch {
+            val success =
+                repository.updateTasks(UpdateTodoRequest("ok", _tasks.value), _revision.value)
+            success.onSuccess {
+                getTasks()
+            }.onFailure {
+                _snackbarMessage.value = it.message
+            }
+        }
+    }
+
+
+    fun refreshTaskUi() {
+        viewModelScope.launch {
+            _tasks.value = _tasks.value.map {
+                it.copy(changedAt = Date().time)
+            }.toMutableList()
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        viewModelScope.coroutineContext.cancelChildren()
     }
 }
