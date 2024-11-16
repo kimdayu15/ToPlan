@@ -1,6 +1,6 @@
 package com.gems.toplan.ui.screen
 
-import TodoViewModel
+import com.gems.toplan.ui.model.TodoViewModel
 import android.app.DatePickerDialog
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -26,7 +26,6 @@ fun ItemScreen(
     var checked by remember { mutableStateOf(false) }
     var selectedImportance by remember { mutableStateOf(Importance.NONE) }
 
-    // Fetch task data if taskId is provided
     LaunchedEffect(taskId) {
         taskId?.let {
             val task = viewModel.getTaskById(it)
@@ -42,7 +41,6 @@ fun ItemScreen(
         TopAppBar(
             title = { Text("Task Details") },
             actions = {
-                // Save or Update task
                 IconButton(onClick = {
                     if (noteText.text.isNotEmpty()) {
                         val task = TodoItem.Task(

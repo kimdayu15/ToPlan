@@ -1,6 +1,6 @@
 package com.gems.toplan.navigation
 
-import TodoViewModel
+import com.gems.toplan.ui.model.TodoViewModel
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
@@ -25,7 +25,7 @@ fun AppNavHost(
         startDestination = startDestination
     ) {
         composable(NavigationItems.DoScreen.route) {
-            DoScreen(viewModel, navController)
+            DoScreen(navController)
         }
 
         composable(
