@@ -1,5 +1,6 @@
 package com.gems.toplan.data
 
+import com.gems.toplan.ui.model.Importance
 import com.gems.toplan.data.TodoItem.Task
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -17,7 +18,7 @@ data class TodoItem(
         @SerialName("text")
         val text: String = "",
         @SerialName("importance")
-        val importance: Int = 0,
+        val importance: Importance = Importance.NONE,
         @SerialName("deadline")
         val deadline: Long? = null,
         @SerialName("done")
@@ -57,7 +58,7 @@ data class UpdateTodoRequest(
     @SerialName("status")
     val status: String,
     @SerialName("list")
-    val list: List<TodoItem.Task>,
+    val list: List<Task>,
 )
 
 

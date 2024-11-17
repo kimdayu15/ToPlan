@@ -27,7 +27,7 @@ class TodoViewModel() : ViewModel() {
         }
     }
 
-    private val _tasks = MutableStateFlow<List<TodoItem.Task>>(emptyList())
+    private val _tasks = MutableStateFlow<List<TodoItem.Task>>(mutableListOf())
     val tasks: StateFlow<List<TodoItem.Task>> get() = _tasks
 
     private val _isRefreshing = MutableStateFlow(false)
@@ -47,43 +47,47 @@ class TodoViewModel() : ViewModel() {
         }
     }
 
-    suspend fun getTasks() {
-        val fetchedTasks = repository.getTasks()
-        fetchedTasks.onSuccess {
-            _tasks.value = it.list.toMutableList()
-            _revision.value = it.revision
-            _checkedTasks.value = it.list.count { it.done }
-        }.onFailure {
-            _snackbarMessage.value = it.message
+    fun getTasks() {
+        viewModelScope.launch {
+            val fetchedTasks = repository.getTasks()
+            fetchedTasks.onSuccess {
+                _tasks.value = it.list.toMutableList()
+                _revision.value = it.revision
+                _checkedTasks.value = it.list.count { it.done }
+            }.onFailure {
+                _snackbarMessage.value = it.message
+            }
         }
     }
 
-    suspend fun addTask(text: String, importance: Int, deadline: Long?) {
-        val success = repository.addTask(
-            TodoWorkRequest(
-                "ok", TodoItem.Task(
-                    id = UUID.randomUUID().toString(),
-                    text = text,
-                    importance = importance,
-                    done = false,
-                    deadline = deadline,
-                    createdAt = Date().time,
-                    changedAt = Date().time,
-                    lastUpdatedBy = ""
-                )
+    fun addTask(text: String, importance: Importance, deadline: Long?) {
+        viewModelScope.launch {
+            val success = repository.addTask(
+                TodoWorkRequest(
+                    "ok", TodoItem.Task(
+                        id = UUID.randomUUID().toString(),
+                        text = text,
+                        importance = importance,
+                        done = false,
+                        deadline = deadline,
+                        createdAt = Date().time,
+                        changedAt = Date().time,
+                        lastUpdatedBy = ""
+                    )
 
-            ), _revision.value
-        )
-        success.onSuccess {
-            getTasks()
-        }.onFailure {
-            when (it) {
-                is HttpException -> {
-                    _snackbarMessage.value = it.message
-                }
+                ), _revision.value
+            )
+            success.onSuccess {
+                getTasks()
+            }.onFailure {
+                when (it) {
+                    is HttpException -> {
+                        _snackbarMessage.value = it.message
+                    }
 
-                else -> {
-                    _snackbarMessage.value = it.message
+                    else -> {
+                        _snackbarMessage.value = it.message
+                    }
                 }
             }
         }
@@ -124,16 +128,16 @@ class TodoViewModel() : ViewModel() {
         }
     }
 
-    fun simpleDateFormatter(date: Long): String {
+    fun simpleDateFormatter(date: Date): String {
         val formatter = SimpleDateFormat("dd.MM.yyyy", java.util.Locale.getDefault())
         return if (date != null) {
-            formatter.format(Date(date))
+            formatter.format(date)
         } else {
             ""
         }
     }
 
-    private fun refreshTaskId(id: String, todoWorkRequest: TodoWorkRequest) {
+    fun refreshTaskId(id: String, todoWorkRequest: TodoWorkRequest) {
         viewModelScope.launch {
             val success = repository.updateTask(id, todoWorkRequest, _revision.value)
             success.onSuccess {
@@ -180,10 +184,12 @@ class TodoViewModel() : ViewModel() {
     }
 
 
-    fun refreshTaskUi() {
+    fun refreshTaskUi(todoItem: TodoItem.Task) {
         viewModelScope.launch {
             _tasks.value = _tasks.value.map {
-                it.copy(changedAt = Date().time)
+                if (it.id == todoItem.id) {
+                    it.copy(changedAt = Date().time)
+                } else it
             }.toMutableList()
         }
     }
