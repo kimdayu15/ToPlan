@@ -2,151 +2,313 @@ package com.gems.toplan.ui.screen
 
 import com.gems.toplan.ui.model.TodoViewModel
 import android.app.DatePickerDialog
+import android.content.res.Configuration
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import com.gems.toplan.R
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import com.gems.toplan.ui.model.Importance
 import com.gems.toplan.data.TodoItem
+import com.gems.toplan.data.TodoWorkRequest
 import com.gems.toplan.navigation.NavigationItems
+import com.gems.toplan.ui.theme.ToPlanTheme
 import java.util.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ItemScreen(
-    navController: NavController,
-    viewModel: TodoViewModel,
-    taskId: String? = null
+    navController: NavController, viewModel: TodoViewModel = TodoViewModel(), taskId: String
 ) {
-    var noteText by remember { mutableStateOf(TextFieldValue("")) }
-    var selectedDate by remember { mutableStateOf("") }
-    var checked by remember { mutableStateOf(false) }
-    var selectedImportance by remember { mutableStateOf(Importance.NONE) }
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
+    val text = remember { mutableStateOf("") }
+    val importanceS = remember { mutableStateOf(Importance.NONE) }
+    val deadline: MutableState<Date?> = remember { mutableStateOf(null) }
+    val createdAt: MutableState<Long> = remember { mutableLongStateOf(System.currentTimeMillis()) }
+    val isDone = remember { mutableStateOf(false) }
+    var taskId = taskId
 
-    LaunchedEffect(taskId) {
-        taskId?.let {
-            val task = viewModel.getTaskById(it)
-            task?.let {
-                noteText = TextFieldValue(task.note)
-                selectedDate = task.deadline?.let { formatDate(it) } ?: ""
-                selectedImportance = Importance.values()[task.importance]
-            }
+    if (taskId != "") {
+        viewModel.getTask(taskId) {
+            text.value = it?.text ?: ""
+            importanceS.value = it?.importance ?: Importance.NONE
+            deadline.value = it?.deadline?.let { Date(it) }
+            createdAt.value = it?.createdAt ?: Date().time
+            taskId = it?.id ?: ""
+            isDone.value = it?.done == true
         }
     }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text("Task Details") },
-            actions = {
-                IconButton(onClick = {
-                    if (noteText.text.isNotEmpty()) {
-                        val task = TodoItem.Task(
-                            id = taskId ?: UUID.randomUUID().toString(),
-                            text = noteText.text,
-                            importance = selectedImportance.ordinal,
-                            deadline = if (selectedDate.isNotEmpty()) formatDate(selectedDate) else null,
-                            done = false,
-                            createdAt = System.currentTimeMillis(),
-                            lastUpdatedBy = System.currentTimeMillis().toString()
-                        )
-
-                        if (taskId == null) {
-                            viewModel.addTask(task)
+    ToPlanTheme {
+        Scaffold(modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection), topBar = {
+            TopAppBar(modifier = Modifier.padding(10.dp, 0.dp), title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End
+                ) {
+                    Text(text = "Save", modifier = Modifier.clickable {
+                        if (taskId != "") {
+                            viewModel.refreshTaskId(
+                                taskId,
+                                TodoWorkRequest(
+                                    status = "ok",
+                                    taskElement = TodoItem.Task(
+                                        id = taskId,
+                                        text = text.value,
+                                        importance = importanceS.value,
+                                        deadline = deadline.value?.time,
+                                        createdAt = createdAt.value,
+                                        done = isDone.value,
+                                        changedAt = System.currentTimeMillis(),
+                                        lastUpdatedBy = ""
+                                    )
+                                )
+                            )
+                            navController.navigate(NavigationItems.DoScreen)
                         } else {
-                            viewModel.updateTask(task)
+                            viewModel.addTask(
+                                text.value,
+                                importanceS.value,
+                                deadline.value?.time
+                            )
+                            navController.navigate(NavigationItems.DoScreen)
                         }
 
-                        navController.navigate(NavigationItems.DoScreen.route)
-                    }
-                }) {
-                    Text("Save")
+                    })
                 }
-            }
-        )
-    }) { paddingValues ->
-        Column(modifier = Modifier.padding(paddingValues).padding(16.dp)) {
-            OutlinedTextField(
-                value = noteText,
-                onValueChange = { noteText = it },
-                placeholder = { Text("Write your note here") },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 130.dp),
-                maxLines = Int.MAX_VALUE
-            )
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Importance")
-                ImportanceSelector(
-                    selectedImportance = selectedImportance,
-                    onImportanceSelected = { selectedImportance = it }
+            }, navigationIcon = {
+                IconButton(onClick = { }) {
+                    Icon(
+                        imageVector = Icons.Default.Close, contentDescription = null
+                    )
+                }
+            })
+        }) { values ->
+            Column(
+                modifier = Modifier
+                    .padding(values)
+                    .padding(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = text.value,
+                    onValueChange = { text.value = it },
+                    placeholder = { Text("Write your note here") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 130.dp),
+                    maxLines = Int.MAX_VALUE,
                 )
-            }
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Deadline")
-                if (selectedDate.isNotEmpty()) {
-                    Text("Selected Deadline: $selectedDate", fontSize = 16.sp)
-                }
-                Switch(
-                    checked = checked,
-                    onCheckedChange = { isChecked ->
-                        checked = isChecked
-                        if (isChecked) {
-                            showDatePickerDialog(navController.context) { date ->
-                                selectedDate = date
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    var oneSelected = remember { mutableStateOf(false) }
+                    var twoSelected = remember { mutableStateOf(false) }
+                    var threeSelected = remember { mutableStateOf(false) }
+                    val color = remember { mutableStateOf(Color.Black) }
+                    importanceUpdate(
+                        importanceS.value,
+                        textImportance = text,
+                        colorImportance = color
+                    )
+                    Text("Importance")
+                    Card(modifier = Modifier.height(40.dp), shape = RoundedCornerShape(47)) {
+                        Row {
+                            Button(
+                                onClick = {
+                                    oneSelected.value = true
+                                    twoSelected.value = false
+                                    threeSelected.value = false
+                                    importanceS.value = Importance.LOW
+                                    importanceUpdate(
+                                        importanceS.value,
+                                        textImportance = text,
+                                        colorImportance = color
+                                    )
+
+                                }, colors = ButtonDefaults.buttonColors(
+                                    if (oneSelected.value) {
+                                        Color.White
+                                    } else {
+                                        Color.Transparent
+                                    }
+                                )
+                            ) {
+                                Image(
+                                    painter = painterResource(R.drawable.ic_low),
+                                    contentDescription = null
+                                )
                             }
-                        } else {
-                            selectedDate = ""
+                            Button(
+                                onClick = {
+                                    oneSelected.value = false
+                                    twoSelected.value = true
+                                    threeSelected.value = false
+                                    importanceS.value = Importance.NONE
+                                    importanceUpdate(
+                                        importanceS.value,
+                                        textImportance = text,
+                                        colorImportance = color
+                                    )
+
+                                }, colors = ButtonDefaults.buttonColors(
+                                    if (twoSelected.value) {
+                                        Color.White
+                                    } else {
+                                        Color.Transparent
+                                    }
+                                )
+                            ) {
+                                Text("NO", color = Color.Black)
+                            }
+                            Button(
+                                onClick = {
+                                    oneSelected.value = false
+                                    twoSelected.value = false
+                                    threeSelected.value = true
+                                    importanceS.value = Importance.HIGH
+                                    importanceUpdate(
+                                        importanceS.value,
+                                        textImportance = text,
+                                        colorImportance = color
+                                    )
+
+                                }, colors = ButtonDefaults.buttonColors(
+                                    if (threeSelected.value) {
+                                        Color.White
+                                    } else {
+                                        Color.Transparent
+                                    }
+                                )
+                            ) {
+                                Text(
+                                    "!!", color = if (threeSelected.value) {
+                                        Color.Red
+                                    } else {
+                                        Color.Gray
+                                    }, fontSize = 20.sp
+                                )
+                            }
                         }
                     }
-                )
+
+                    val isToggled = remember { mutableStateOf(false) }
+                    val initDateSetter = remember { mutableStateOf(false) }
+                    val dateSelected = remember { mutableStateOf("") }
+                    val calendar = Calendar.getInstance()
+
+                    if (deadline.value != null) {
+                        dateSelected.value = viewModel.simpleDateFormatter(deadline.value!!)
+                        isToggled.value = true
+                        initDateSetter.value = true
+                    }
+
+                    val year = calendar.get(Calendar.YEAR)
+                    val month = calendar.get(Calendar.MONTH)
+                    val day = calendar.get(Calendar.DAY_OF_MONTH)
+
+                    val datePickerDialog = DatePickerDialog(
+                        LocalContext.current, { _, selectedYear, selectedMonth, selectedDay ->
+                            calendar.set(selectedYear, selectedMonth, selectedDay)
+                            dateSelected.value = viewModel.simpleDateFormatter(calendar.time)
+                            deadline.value = calendar.time
+                            isToggled.value = true
+                            initDateSetter.value = true
+                        }, year, month, day
+                    )
+
+                    LaunchedEffect(isToggled.value && !initDateSetter.value) {
+                        if (isToggled.value && !initDateSetter.value) {
+                            datePickerDialog.show()
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("Deadline")
+                            if (isToggled.value) {
+                                Text(dateSelected.value, color = color.value)
+                            }
+                        }
+                        Switch(checked = isToggled.value, onCheckedChange = {
+                            if (it) {
+                                isToggled.value = true
+                                initDateSetter.value = false
+                            } else {
+                                isToggled.value = false
+                                dateSelected.value = ""
+                                deadline.value = null
+                            }
+                        })
+                    }
+                    val deleteColor = remember { mutableStateOf(Color.Gray) }
+                    if (taskId != "") {
+                        deleteColor.value = Color.Red
+                    } else {
+                        deleteColor.value = Color.Gray
+                    }
+                    Button(onClick = {
+                        viewModel.deleteTaskId(taskId)
+                        navController.navigate(NavigationItems.DoScreen.route)
+                    },) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_delete),
+                            contentDescription = null,
+                            tint = deleteColor.value
+                        )
+                        Text("Delete", color = deleteColor.value)
+                    }
+
+                }
             }
         }
     }
 }
 
-enum class Importance { NONE, LOW, HIGH }
 
-@Composable
-fun ImportanceSelector(
+fun importanceUpdate(
     selectedImportance: Importance,
-    onImportanceSelected: (Importance) -> Unit
+    textImportance: MutableState<String>,
+    colorImportance: MutableState<Color>
 ) {
-    Row {
-        Button(onClick = { onImportanceSelected(Importance.LOW) }) {
-            Text("Low", color = if (selectedImportance == Importance.LOW) Color.White else Color.Black)
-        }
-        Button(onClick = { onImportanceSelected(Importance.NONE) }) {
-            Text("None", color = if (selectedImportance == Importance.NONE) Color.White else Color.Black)
-        }
-        Button(onClick = { onImportanceSelected(Importance.HIGH) }) {
-            Text("High", color = if (selectedImportance == Importance.HIGH) Color.White else Color.Red)
-        }
+    if (selectedImportance == Importance.NONE) {
+        textImportance.value = "None"
+        colorImportance.value = Color.Black
+    } else if (selectedImportance == Importance.LOW) {
+        textImportance.value = "Low"
+        colorImportance.value = Color.Black
+    } else if (selectedImportance == Importance.HIGH) {
+        textImportance.value = "High"
+        colorImportance.value = Color.Red
     }
 }
 
-
-fun formatDate(date: Date): String {
-    val calendar = Calendar.getInstance()
-    calendar.time = date
-    return "${calendar.get(Calendar.DAY_OF_MONTH)}/${calendar.get(Calendar.MONTH) + 1}/${calendar.get(Calendar.YEAR)}"
-}
-
-private fun showDatePickerDialog(
-    context: android.content.Context, onDateSelected: (String) -> Unit
-) {
-    val calendar = Calendar.getInstance()
-    val year = calendar.get(Calendar.YEAR)
-    val month = calendar.get(Calendar.MONTH)
-    val day = calendar.get(Calendar.DAY_OF_MONTH)
-
-    val datePickerDialog = DatePickerDialog(
-        context, { _, selectedYear, selectedMonth, selectedDay ->
-            val date = "$selectedDay/${selectedMonth + 1}/$selectedYear"
-            onDateSelected(date)
-        }, year, month, day
-    )
-    datePickerDialog.show()
+@Preview(showBackground = true, showSystemUi = true)
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
+@Composable
+fun ItemPreview() {
+    ItemScreen(rememberNavController(), taskId = "1")
 }
