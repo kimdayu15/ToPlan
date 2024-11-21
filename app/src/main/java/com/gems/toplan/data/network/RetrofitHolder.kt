@@ -1,4 +1,4 @@
-package com.gems.toplan.network
+package com.gems.toplan.data.network
 
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -11,7 +11,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 
 object RetrofitHolder {
-    private const val BASEURL = "https://beta.mrdekk.ru/todo"
+    private const val BASEURL = "https://82.148.16.157/todo/"
     private const val TOKEN = "Isilme"
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -38,6 +38,7 @@ object RetrofitHolder {
         )
         .addInterceptor(tokenInterceptor)
         .addInterceptor(loggingInterceptor)
+        .hostnameVerifier { _, _ -> true }
         .build()
 
 

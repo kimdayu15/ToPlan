@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.gems.toplan.ui.model.Importance
+import com.gems.toplan.ui.components.Importance
 import com.gems.toplan.data.TodoItem
 import com.gems.toplan.data.TodoWorkRequest
 import com.gems.toplan.navigation.NavigationItems
@@ -79,20 +79,22 @@ fun ItemScreen(
                                     )
                                 )
                             )
-                            navController.navigate(NavigationItems.DoScreen)
+                            navController.navigate(NavigationItems.DoScreen.route)
                         } else {
                             viewModel.addTask(
                                 text.value,
                                 importanceS.value,
                                 deadline.value?.time
                             )
-                            navController.navigate(NavigationItems.DoScreen)
+                            navController.navigate(NavigationItems.DoScreen.route)
                         }
 
                     })
                 }
             }, navigationIcon = {
-                IconButton(onClick = { }) {
+                IconButton(onClick = {
+                    navController.navigate(NavigationItems.DoScreen.route)
+                }) {
                     Icon(
                         imageVector = Icons.Default.Close, contentDescription = null
                     )
@@ -127,7 +129,6 @@ fun ItemScreen(
                     val color = remember { mutableStateOf(Color.Black) }
                     importanceUpdate(
                         importanceS.value,
-                        textImportance = text,
                         colorImportance = color
                     )
                     Text("Importance")
@@ -141,7 +142,6 @@ fun ItemScreen(
                                     importanceS.value = Importance.LOW
                                     importanceUpdate(
                                         importanceS.value,
-                                        textImportance = text,
                                         colorImportance = color
                                     )
 
@@ -166,7 +166,6 @@ fun ItemScreen(
                                     importanceS.value = Importance.NONE
                                     importanceUpdate(
                                         importanceS.value,
-                                        textImportance = text,
                                         colorImportance = color
                                     )
 
@@ -188,7 +187,6 @@ fun ItemScreen(
                                     importanceS.value = Importance.HIGH
                                     importanceUpdate(
                                         importanceS.value,
-                                        textImportance = text,
                                         colorImportance = color
                                     )
 
@@ -210,78 +208,80 @@ fun ItemScreen(
                             }
                         }
                     }
+                }
+                val isToggled = remember { mutableStateOf(false) }
+                val initDateSetter = remember { mutableStateOf(false) }
+                val dateSelected = remember { mutableStateOf("") }
+                val calendar = Calendar.getInstance()
 
-                    val isToggled = remember { mutableStateOf(false) }
-                    val initDateSetter = remember { mutableStateOf(false) }
-                    val dateSelected = remember { mutableStateOf("") }
-                    val calendar = Calendar.getInstance()
+                if (deadline.value != null) {
+                    dateSelected.value = viewModel.simpleDateFormatter(deadline.value!!)
+                    isToggled.value = true
+                    initDateSetter.value = true
+                }
 
-                    if (deadline.value != null) {
-                        dateSelected.value = viewModel.simpleDateFormatter(deadline.value!!)
+                val year = calendar.get(Calendar.YEAR)
+                val month = calendar.get(Calendar.MONTH)
+                val day = calendar.get(Calendar.DAY_OF_MONTH)
+
+                val datePickerDialog = DatePickerDialog(
+                    LocalContext.current, { _, selectedYear, selectedMonth, selectedDay ->
+                        calendar.set(selectedYear, selectedMonth, selectedDay)
+                        dateSelected.value = viewModel.simpleDateFormatter(calendar.time)
+                        deadline.value = calendar.time
                         isToggled.value = true
                         initDateSetter.value = true
+                    }, year, month, day
+                )
+
+                LaunchedEffect(isToggled.value && !initDateSetter.value) {
+                    if (isToggled.value && !initDateSetter.value) {
+                        datePickerDialog.show()
                     }
+                }
 
-                    val year = calendar.get(Calendar.YEAR)
-                    val month = calendar.get(Calendar.MONTH)
-                    val day = calendar.get(Calendar.DAY_OF_MONTH)
-
-                    val datePickerDialog = DatePickerDialog(
-                        LocalContext.current, { _, selectedYear, selectedMonth, selectedDay ->
-                            calendar.set(selectedYear, selectedMonth, selectedDay)
-                            dateSelected.value = viewModel.simpleDateFormatter(calendar.time)
-                            deadline.value = calendar.time
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text("Deadline")
+                        if (isToggled.value) {
+                            Text(dateSelected.value, color = Color.Black)
+                        }
+                    }
+                    Switch(checked = isToggled.value, onCheckedChange = {
+                        if (it) {
                             isToggled.value = true
-                            initDateSetter.value = true
-                        }, year, month, day
-                    )
-
-                    LaunchedEffect(isToggled.value && !initDateSetter.value) {
-                        if (isToggled.value && !initDateSetter.value) {
-                            datePickerDialog.show()
+                            initDateSetter.value = false
+                        } else {
+                            isToggled.value = false
+                            dateSelected.value = ""
+                            deadline.value = null
                         }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text("Deadline")
-                            if (isToggled.value) {
-                                Text(dateSelected.value, color = color.value)
-                            }
-                        }
-                        Switch(checked = isToggled.value, onCheckedChange = {
-                            if (it) {
-                                isToggled.value = true
-                                initDateSetter.value = false
-                            } else {
-                                isToggled.value = false
-                                dateSelected.value = ""
-                                deadline.value = null
-                            }
-                        })
-                    }
-                    val deleteColor = remember { mutableStateOf(Color.Gray) }
-                    if (taskId != "") {
-                        deleteColor.value = Color.Red
-                    } else {
-                        deleteColor.value = Color.Gray
-                    }
-                    Button(onClick = {
+                    })
+                }
+                val deleteColor = remember { mutableStateOf(Color.Gray) }
+                if (text.value != "") {
+                    deleteColor.value = Color.Red
+                } else {
+                    deleteColor.value = Color.Gray
+                }
+                Button(
+                    onClick = {
                         viewModel.deleteTaskId(taskId)
                         navController.navigate(NavigationItems.DoScreen.route)
-                    },) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_delete),
-                            contentDescription = null,
-                            tint = deleteColor.value
-                        )
-                        Text("Delete", color = deleteColor.value)
-                    }
-
+                    }, modifier = Modifier.fillMaxWidth().padding(3.dp), colors = ButtonDefaults.buttonColors(
+                        Color.White)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_delete),
+                        contentDescription = null,
+                        tint = deleteColor.value
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text("Delete", color = deleteColor.value)
                 }
             }
         }
@@ -291,17 +291,13 @@ fun ItemScreen(
 
 fun importanceUpdate(
     selectedImportance: Importance,
-    textImportance: MutableState<String>,
     colorImportance: MutableState<Color>
 ) {
     if (selectedImportance == Importance.NONE) {
-        textImportance.value = "None"
         colorImportance.value = Color.Black
     } else if (selectedImportance == Importance.LOW) {
-        textImportance.value = "Low"
         colorImportance.value = Color.Black
     } else if (selectedImportance == Importance.HIGH) {
-        textImportance.value = "High"
         colorImportance.value = Color.Red
     }
 }

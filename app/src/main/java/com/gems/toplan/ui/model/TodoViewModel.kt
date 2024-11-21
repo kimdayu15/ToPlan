@@ -3,11 +3,12 @@ package com.gems.toplan.ui.model
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.gems.toplan.data.NetworkUtils
+import com.gems.toplan.data.network.NetworkUtils
 import com.gems.toplan.data.TodoItem
 import com.gems.toplan.data.TodoItemsRepository
 import com.gems.toplan.data.TodoWorkRequest
 import com.gems.toplan.data.UpdateTodoRequest
+import com.gems.toplan.ui.components.Importance
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch

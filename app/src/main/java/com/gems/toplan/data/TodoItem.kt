@@ -1,6 +1,6 @@
 package com.gems.toplan.data
 
-import com.gems.toplan.ui.model.Importance
+import com.gems.toplan.ui.components.Importance
 import com.gems.toplan.data.TodoItem.Task
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -50,7 +50,7 @@ data class TodoWorkRequest(
     @SerialName("status")
     val status: String,
     @SerialName("task_element")
-    val taskElement: TodoItem.Task
+    val taskElement: Task
 )
 
 @Serializable

@@ -1,4 +1,4 @@
-package com.gems.toplan.network
+package com.gems.toplan.data.network
 
 import com.gems.toplan.data.TodoItem
 import com.gems.toplan.data.TodoItemResponse

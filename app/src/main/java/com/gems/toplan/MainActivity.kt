@@ -1,4 +1,4 @@
-package com.gems.toplan.ui.model
+package com.gems.toplan
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity

@@ -49,7 +49,7 @@ dependencies {
     implementation (libs.androidx.foundation.v150)
     implementation (libs.converter.gson)
     implementation (libs.retrofit)
-    implementation (libs.kotlinx.serialization.json.v173)
+    implementation(libs.kotlinx.serialization.json.v173)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
