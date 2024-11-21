@@ -19,12 +19,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavHostController
 import com.gems.toplan.R
 import com.gems.toplan.data.TodoItem
-import com.gems.toplan.ui.model.Importance
+import com.gems.toplan.ui.components.Importance
 import com.gems.toplan.ui.model.TodoViewModel
 import kotlinx.coroutines.launch
 
@@ -58,17 +58,13 @@ fun DoScreen(
         }
     }
 
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) {
-                viewModel.refreshTasks()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
+    val lifecycle = lifecycleOwner.lifecycle
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewModel.refreshTasks()
         }
     }
+
 
     viewModel.observeNetworkChanges(LocalContext.current)
 
@@ -182,6 +178,7 @@ fun EachTask(
                     val updatedTask = task.copy(done = isChecked)
                     updateTask(updatedTask)
                     viewModel.refreshTaskUi(updatedTask)
+                    viewModel.countRefresh(isChecked)
                 },
                 colors = CheckboxDefaults.colors(textColor)
             )
@@ -207,8 +204,7 @@ fun EachTask(
                 task.deadline?.let {
                     Text(
                         text = "$it",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
             }

@@ -1,6 +1,6 @@
 package com.gems.toplan.data
 
-import com.gems.toplan.network.RetrofitHolder
+import com.gems.toplan.data.network.RetrofitHolder
 
 class TodoItemsRepository() : TaskRepository {
 

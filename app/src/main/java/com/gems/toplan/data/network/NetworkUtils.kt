@@ -1,4 +1,4 @@
-package com.gems.toplan.data
+package com.gems.toplan.data.network
 
 import android.content.Context
 import android.net.ConnectivityManager
